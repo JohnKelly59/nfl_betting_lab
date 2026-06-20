@@ -15,9 +15,27 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# FIXED: Target selectors to completely isolate and eliminate Streamlit toolbar items (Share, GitHub, etc.)
+# FIXED: Re-balanced padding heights to fix the clipped components from image_87f81d.png
 st.markdown("""
     <style>
-        .block-container { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        /* Complete elimination of default Streamlit top header toolbar elements */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        div[data-testid="stToolbar"] {
+            display: none !important;
+        }
+        footer {
+            visibility: hidden !important;
+        }
+        
+        /* Clean margins ensuring operational components never clip */
+        .block-container { 
+            padding-top: 2rem !important; 
+            padding-bottom: 2rem !important; 
+        }
+        
         .stMetric { 
             background-color: rgba(255, 255, 255, 0.03); 
             padding: 12px; 
@@ -61,8 +79,8 @@ init_tracker()
 def fetch_and_build_pipeline(season):
     """Pulls live schedule and team stats data via nflreadpy framework"""
     try:
-        schedules = nfl.load_schedules([season]).to_pandas()
-        team_stats = nfl.load_team_stats([season], summary_level="week").to_pandas()
+        schedules = nfl.load_schedules([season]).to_pandas()[cite: 4]
+        team_stats = nfl.load_team_stats([season], summary_level="week").to_pandas()[cite: 4]
     except Exception:
         # Fallback Generator to ensure 100% application stability out-of-season
         teams = ['BUF', 'MIA', 'NE', 'NYJ', 'BAL', 'CIN', 'CLE', 'PIT', 'HOU', 'IND', 'JAX', 'TEN', 
@@ -143,7 +161,6 @@ def process_advanced_differentials(schedules, team_stats):
     
     for m in metrics:
         team_profiles[f"{m}_roll"] = team_profiles.groupby("team")[m].transform(lambda x: x.rolling(4, min_periods=1).mean())
-        # Shift back by 1 week to strictly prevent future data leakages
         team_profiles[f"{m}_prev"] = team_profiles.groupby("team")[f"{m}_roll"].shift(1).fillna(team_profiles[f"{m}_roll"])
         
     return team_profiles
@@ -280,7 +297,6 @@ with t8:
         h_prof = processed_profiles[(processed_profiles["team"] == h_team) & (processed_profiles["week"] == st.session_state.selected_week)]
         a_prof = processed_profiles[(processed_profiles["team"] == a_team) & (processed_profiles["week"] == st.session_state.selected_week)]
         
-        # Ingest All 6 Core Baseline Metrics Safely
         h_epa = h_prof["epa_prev"].values[0] if not h_prof.empty else 0.0
         a_epa = a_prof["epa_prev"].values[0] if not a_prof.empty else 0.0
         h_ypp = h_prof["y_per_play_prev"].values[0] if not h_prof.empty else 5.4
@@ -294,18 +310,15 @@ with t8:
         h_rz = h_prof["red_zone_pct_prev"].values[0] if not h_prof.empty else 55.0
         a_rz = a_prof["red_zone_pct_prev"].values[0] if not a_prof.empty else 55.0
         
-        # Calculate Multi-Factor Differentials (Roadmap Blueprint Formula)
         epa_diff = h_epa - a_epa
         ypp_diff = h_ypp - a_ypp
         sr_diff = h_sr - a_sr
-        sack_diff = a_sack - h_sack  # Lower is better
-        to_diff = a_to - h_to        # Lower is better
+        sack_diff = a_sack - h_sack  
+        to_diff = a_to - h_to        
         rz_diff = h_rz - a_rz
         
-        # Weighted Composite Strength Model
         composite_delta = (epa_diff * 4.5) + (ypp_diff * 1.5) + (sr_diff * 0.12) + (sack_diff * 0.08) + (to_diff * 0.40) + (rz_diff * 0.04)
         
-        # Standardize signs (negative denotes favorite)
         base_predicted_spread = -(composite_delta * (scale_input / 3.2)) - hfa_input
         base_predicted_total = row["total_line"] + ((h_epa + a_epa) * 2.0)
         
@@ -404,7 +417,7 @@ with t8:
             })
             
     st.session_state.model_runs[st.session_state.selected_week] = pd.DataFrame(adjusted_game_records)
-    st.success("✅ Calculations executed and finalized.")
+    st.success("✅ Projections generated and updated successfully.")
 
 # -------------------------------------------------------------------------
 # TAB 9: BILLIONBETTING CARD
