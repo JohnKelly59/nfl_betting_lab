@@ -10,7 +10,7 @@ from datetime import datetime
 # STYLING & CONFIGURATION
 # -------------------------------------------------------------------------
 st.set_page_config(
-    page_title="BillionBetting NFL Model", 
+    page_title="BillionBetting — NFL Model & Ledger",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -136,26 +136,30 @@ def process_advanced_differentials(schedules, team_stats):
 # SIDEBAR CONTROL DECK
 # -------------------------------------------------------------------------
 with st.sidebar:
-    st.title("⚙️ Engine Controls")
-    
+    st.title("⚙️ Engine Controls & Settings")
+    st.caption("Configure mode, season, and model-level power settings used throughout the workspace.")
+
     # MASTER MODE SWITCH
     app_mode = st.radio(
-        "Select Application Environment",
+        "Application Mode",
         ["🔬 Research & Backtesting", "🏈 Live Weekly Operations"],
-        index=0
+        index=0,
+        help="Choose 'Research & Backtesting' for historical validation, or 'Live Weekly Operations' for the active weekly workflow."
     )
     
     st.divider()
-    target_season = st.selectbox("Target Season", [2023, 2024, 2025, 2026], index=3)
+    target_season = st.selectbox("Target Season", [2023, 2024, 2025, 2026], index=3, help="Season to pull or simulate schedules and stats for.")
     
     with st.container(border=True):
         st.markdown("**Global Model Power Settings**")
-        hfa_input = st.slider("Home Field Advantage", 0.0, 4.0, 2.5, step=0.25)
-        scale_input = st.slider("Model Intensity Scale Factor", 1.0, 5.0, 3.2, step=0.1)
+        st.caption("Adjust global parameters that influence model sensitivity and home-field bias.")
+        hfa_input = st.slider("Home Field Advantage (pts)", 0.0, 4.0, 2.5, step=0.25, help="Estimate (in points) added to home team advantage when computing predicted spreads.")
+        scale_input = st.slider("Model Intensity Scale Factor", 1.0, 5.0, 3.2, step=0.1, help="Multiplier that scales the composite differential to produce the model spread. Higher values make the model more aggressive.")
         
     if st.button("🔄 UPDATE NFL DATA / REFRESH PIPELINES", use_container_width=True):
         st.cache_data.clear()
         st.toast("Power Query Automations Completed. All Lines Re-Indexed!", icon="🔄")
+    st.caption("Click to clear cached data and refresh the schedules/stats pipelines. This may take a moment for large seasons.")
 
 # Pipeline Processing Execution
 raw_sched, raw_stats = fetch_and_build_pipeline(target_season)
@@ -171,17 +175,18 @@ processed_profiles = process_advanced_differentials(raw_sched, raw_stats)
 # -------------------------------------------------------------------------
 if app_mode == "🔬 Research & Backtesting":
     st.title("🔬 Automated Historical Backtesting & Validation Lab")
+    st.caption("Use this lab to run bulk historical backtests, validate model thresholds, and inspect raw outcomes vs. model predictions.")
     st.markdown("This workspace evaluates pure statistical baseline metrics across historical data to isolate predictive performance without any manual intervention.")
 
     # Macro Execution Form
     with st.form("backtest_form"):
         st.markdown("### 🏃‍♂️ Configure Bulk Backtest Run")
+        st.caption("Select an inclusive week range to evaluate historical model alignment vs. closing lines.")
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            start_wk = st.number_input("Start Evaluation Week", min_value=1, max_value=18, value=5)
+            start_wk = st.number_input("Start Evaluation Week", min_value=1, max_value=18, value=5, help="First week (inclusive) for the backtest range.")
         with col_b2:
-            end_wk = st.number_input("End Evaluation Week", min_value=1, max_value=18, value=18)
-            
+            end_wk = st.number_input("End Evaluation Week", min_value=1, max_value=18, value=18, help="Last week (inclusive) for the backtest range.")
         submit_backtest = st.form_submit_button("Execute Automated Backtest Profile", use_container_width=True)
 
     if submit_backtest:
@@ -258,20 +263,21 @@ if app_mode == "🔬 Research & Backtesting":
             # --- VALIDATION GRAPHICS ENGINE ---
             st.markdown("---")
             st.subheader("📊 Strategic Model Performance Audit Diagnostic")
-            
+            st.caption("High-level win rate metrics computed versus the spread. Use these to assess threshold viability.")
             c_m1, c_m2, c_m3 = st.columns(3)
             with c_m1:
                 overall_wr = bt_df[bt_df["Covered"] != 0.5]["Covered"].mean() * 100
-                st.metric("Overall System Win Rate", f"{overall_wr:.1f}%")
+                st.metric("Overall System Win Rate (vs. Spread)", f"{overall_wr:.1f}%")
             with c_m2:
                 edge_1_wr = bt_df[(bt_df["Abs_Edge"] >= 1.0) & (bt_df["Covered"] != 0.5)]["Covered"].mean() * 100
-                st.metric("Edge > 1.0 Pts Win Rate", f"{edge_1_wr:.1f}%")
+                st.metric("Win Rate — Edge ≥ 1.0 pts", f"{edge_1_wr:.1f}%")
             with c_m3:
                 edge_2_wr = bt_df[(bt_df["Abs_Edge"] >= 2.0) & (bt_df["Covered"] != 0.5)]["Covered"].mean() * 100
-                st.metric("Edge > 2.0 Pts Win Rate", f"{edge_2_wr:.1f}%")
+                st.metric("Win Rate — Edge ≥ 2.0 pts", f"{edge_2_wr:.1f}%")
                 
             # Plotly Visualization Edge Bucket Check
             st.markdown("### Threshold Viability Profile")
+            st.caption("Bar chart showing win percentage by calculated model edge buckets — useful for selecting edge cutoffs.")
             bt_df["Edge Bucket"] = pd.cut(bt_df["Abs_Edge"], bins=[0, 1, 2, 3, 10], labels=["0-1 Pts Edge", "1-2 Pts Edge", "2-3 Pts Edge", "3+ Pts Edge"])
             chart_data = bt_df[bt_df["Covered"] != 0.5].groupby("Edge Bucket", observed=False)["Covered"].mean().reset_index()
             chart_data["Win %"] = chart_data["Covered"] * 100
@@ -309,40 +315,54 @@ else:
     # [REST OF YOUR ORIGINAL 10 TABS CODE REMAINS EXACTLY THE SAME BELOW]
     # TAB 1: DASHBOARD
     with t1:
-        st.subheader("🏈 BillionBetting Command Center")
+        st.subheader("🏈 BillionBetting Command Center — Dashboard & System Health")
+        st.caption("Quick operational summary: ledger counts, CLV, win rate, and the active week context.")
         db_col1, db_col2, db_col3, db_col4 = st.columns(4)
         tracker_df = pd.read_csv(TRACKER_FILE)
-        
-        with db_col1: st.metric("Total Profiled Outplays", len(tracker_df))
+
+        with db_col1:
+            st.metric("Total Profiled Plays (Ledger Entries)", len(tracker_df))
+            st.caption("Total number of plays recorded in the historical ledger.")
         with db_col2:
             clv_avg = tracker_df["CLV"].mean() if not tracker_df.empty else 0.0
             st.metric("Average CLV Captured", f"{clv_avg:+.2f} Pts")
+            st.caption("Average captured CLV (closing line value) per logged play.")
         with db_col3:
             win_rate = (len(tracker_df[tracker_df["Result"] == "WIN"]) / len(tracker_df) * 100) if len(tracker_df) > 0 else 0.0
             st.metric("System Model Accuracy", f"{win_rate:.1f}%")
-        with db_col4: st.metric("Active Week Horizon", f"Week {st.session_state.selected_week}")
-            
+            st.caption("Percent of logged plays marked as 'WIN' in the ledger (excluding pushes).")
+        with db_col4:
+            st.metric("Active Week Horizon", f"Week {st.session_state.selected_week}")
+            st.caption("Currently selected operational week for model calculations.")
+
         st.markdown("---")
         st.markdown("### ⚡ System Status Checklist")
+        st.caption("At-a-glance health indicators for data pipelines and metric engine readiness.")
         c1, c2, c3 = st.columns(3)
         c1.success("✅ Power Query Engine Pipeline Connected")
+        c1.caption("Live schedule and team stats ingestion (or simulated fallback).")
         c2.success(f"✅ Metric Engine Loaded ({len(processed_profiles)} System Vectors)")
+        c2.caption("Processed team differential vectors available for model computations.")
         c3.info("💡 Projections Ready for Context Layer Inputs")
+        c3.caption("Open a matchup in Model Output to tune injuries, weather, and situational factors.")
 
     # TAB 2: NFL SCHEDULE
     with t2:
-        st.subheader(f"📅 Operational Slate Structure — Week {st.session_state.selected_week}")
+        st.subheader(f"📅 Operational Slate — Week {st.session_state.selected_week}")
+        st.caption("Consensus spreads and totals from the active schedule. Use these to compare against model outputs.")
         st.dataframe(active_week_sched[["game_id", "away_team", "home_team", "spread_line", "total_line"]], use_container_width=True, hide_index=True)
 
     # TAB 3: TEAM STATS
     with t3:
-        st.subheader("📊 Base Operational Efficiency Table")
+        st.subheader("📊 Team Efficiency — Base Metrics")
+        st.caption("Key efficiency metrics used as the foundation for model differentials (EPA, YPP, turnovers).")
         latest_week_stats = processed_profiles[processed_profiles["week"] == st.session_state.selected_week]
         st.dataframe(latest_week_stats[["team", "week", "epa", "y_per_play", "turnovers"]], use_container_width=True, hide_index=True)
 
     # TAB 4: ADVANCED STATS
     with t4:
-        st.subheader("🧠 Core Differential Component Matrix")
+        st.subheader("🧠 Advanced Differentials & Rolling Profiles")
+        st.caption("Rolling 4-week profile components used to compute composite differentials for matchup-level predictions.")
         st.dataframe(
             processed_profiles[processed_profiles["week"] == st.session_state.selected_week][
                 ["team", "y_per_play_roll", "success_rate_roll", "sack_rate_roll", "red_zone_pct_roll"]
@@ -352,6 +372,7 @@ else:
     # TAB 5: BETTING LINES
     with t5:
         st.subheader("💰 Live Vegas Sportsbook Aggregations")
+        st.caption("Marketplace consensus lines (spread/total) used to compute edge vs. the model's predicted numbers.")
         st.dataframe(active_week_sched[["away_team", "home_team", "spread_line", "total_line"]].rename(
             columns={"spread_line": "Consensus Spread", "total_line": "Consensus Total"}
         ), use_container_width=True, hide_index=True)
@@ -359,11 +380,13 @@ else:
     # TAB 6: INJURIES
     with t6:
         st.subheader("🏥 Dynamic League Injury Report Panel")
+        st.caption("Reference of injury categories — adjust specific matchup injuries in the 'Model Output' tab to affect predictions.")
         st.info("System configuration tracking active roster variants. Inject exact parameter updates in the Workspace tab below.")
 
     # TAB 7: POWER RATINGS
     with t7:
-        st.subheader("👑 Net Numerical Roster Power Ratings")
+        st.subheader("👑 Power Ratings — Team Strength Index")
+        st.caption("Composite power ratings that summarize recent team form and efficiency for ranking.")
         rating_week = processed_profiles[processed_profiles["week"] == st.session_state.selected_week].copy()
         rating_week["Composite Score"] = (rating_week["epa_roll"] * 10) + (rating_week["success_rate_roll"] * 0.5)
         rating_week = rating_week.sort_values(by="Composite Score", ascending=False)
@@ -373,6 +396,7 @@ else:
     # TAB 8: MODEL OUTPUT
     with t8:
         st.subheader("🎯 Context Intelligence & Math Modeling Workspace")
+        st.caption("Open a matchup below to tweak weather, injuries, and situational overrides — the model will update predicted spread, total, confidence, and tier.")
         adjusted_game_records = []
         
         for idx, row in active_week_sched.iterrows():
@@ -413,30 +437,30 @@ else:
                 
                 with col_w:
                     st.markdown("**🌦️ Weather Systems Engine**")
-                    wind = st.slider("Wind Vector (MPH)", 0, 35, 0, key=f"w_wind_{g_id}")
-                    precip = st.selectbox("Precipitation Profile", ["None", "Heavy Rain", "Snow"], key=f"w_precip_{g_id}")
-                    extreme_cold = st.checkbox("Extreme Cold Cycle Active", key=f"w_cold_{g_id}")
+                    wind = st.slider("Wind Vector (MPH)", 0, 35, 0, key=f"w_wind_{g_id}", help="Estimated sustained wind — higher values reduce passing efficiency and scoring.")
+                    precip = st.selectbox("Precipitation Profile", ["None", "Heavy Rain", "Snow"], key=f"w_precip_{g_id}", help="Precipitation impact on game flow and scoring.")
+                    extreme_cold = st.checkbox("Extreme Cold Cycle Active", key=f"w_cold_{g_id}", help="Toggle if temperatures are expected to materially impact offensive performance.")
                     
                 with col_inj:
                     st.markdown("**🏥 Injury Adjustments Matrix**")
-                    h_qb = st.checkbox("Home QB1 Out (-6.0)", key=f"h_qb_{g_id}")
-                    h_lt = st.checkbox("Home Starting LT Out (-0.75)", key=f"h_lt_{g_id}")
-                    h_wr1 = st.checkbox("Home WR1 Out (-1.0)", key=f"h_wr1_{g_id}")
-                    h_pass = st.checkbox("Home Elite Pass Rusher Out (-0.5)", key=f"h_pass_{g_id}")
-                    h_ol = st.checkbox("Home Multiple OL Injuries (-0.5)", key=f"h_ol_{g_id}")
+                    h_qb = st.checkbox("Home QB1 Out (-6.0)", key=f"h_qb_{g_id}", help="Major QB absence — large negative impact on home team's predicted points.")
+                    h_lt = st.checkbox("Home Starting LT Out (-0.75)", key=f"h_lt_{g_id}", help="Left tackle out increases pressure and reduces pass protection.")
+                    h_wr1 = st.checkbox("Home WR1 Out (-1.0)", key=f"h_wr1_{g_id}", help="Top receiving target out — reduces passing upside.")
+                    h_pass = st.checkbox("Home Elite Pass Rusher Out (-0.5)", key=f"h_pass_{g_id}", help="Missing pass rusher reduces opponent sack pressure.")
+                    h_ol = st.checkbox("Home Multiple OL Injuries (-0.5)", key=f"h_ol_{g_id}", help="Multiple offensive line injuries degrade run/pass blocking.")
                     st.divider()
-                    a_qb = st.checkbox("Away QB1 Out (+6.0)", key=f"a_qb_{g_id}")
-                    a_lt = st.checkbox("Away Starting LT Out (+0.75)", key=f"a_lt_{g_id}")
-                    a_wr1 = st.checkbox("Away WR1 Out (+1.0)", key=f"a_wr1_{g_id}")
-                    a_pass = st.checkbox("Away Elite Pass Rusher Out (+0.5)", key=f"a_pass_{g_id}")
-                    a_ol = st.checkbox("Away Multiple OL Injuries (+0.5)", key=f"a_ol_{g_id}")
+                    a_qb = st.checkbox("Away QB1 Out (+6.0)", key=f"a_qb_{g_id}", help="Major QB absence for away team — strong positive to home edge.")
+                    a_lt = st.checkbox("Away Starting LT Out (+0.75)", key=f"a_lt_{g_id}", help="Away LT out reduces away pass protection.")
+                    a_wr1 = st.checkbox("Away WR1 Out (+1.0)", key=f"a_wr1_{g_id}", help="Away top WR out reduces passing threat.")
+                    a_pass = st.checkbox("Away Elite Pass Rusher Out (+0.5)", key=f"a_pass_{g_id}", help="Away pass rusher out reduces pressure on home QB.")
+                    a_ol = st.checkbox("Away Multiple OL Injuries (+0.5)", key=f"a_ol_{g_id}", help="Away multiple OL injuries degrade their protection." )
                     
                 with col_sit:
                     st.markdown("**✈️ Situational & Manual Overrides**")
-                    rest_adv = st.selectbox("Rest Profile", ["Neutral", "Home Extra Rest", "Away Extra Rest", "Home Short Week", "Away Short Week"], key=f"sit_rest_{g_id}")
-                    h_travel = st.checkbox("Home Cross-Country Burden (-0.5)", key=f"h_trv_{g_id}")
-                    a_travel = st.checkbox("Away Cross-Country / West-to-East Burden (+0.5)", key=f"a_trv_{g_id}")
-                    manual_pts = st.number_input("Coaching / Motivation Points Mod", -5.0, 5.0, 0.0, step=0.5, key=f"manual_{g_id}")
+                    rest_adv = st.selectbox("Rest Profile", ["Neutral", "Home Extra Rest", "Away Extra Rest", "Home Short Week", "Away Short Week"], key=f"sit_rest_{g_id}", help="Select rest/travel profile to account for recovery or fatigue effects.")
+                    h_travel = st.checkbox("Home Cross-Country Burden (-0.5)", key=f"h_trv_{g_id}", help="Toggle if the home team traveled long distance and may be disadvantaged.")
+                    a_travel = st.checkbox("Away Cross-Country / West-to-East Burden (+0.5)", key=f"a_trv_{g_id}", help="Toggle if the away team suffered significant travel and jet-lag effects.")
+                    manual_pts = st.number_input("Coaching / Motivation Points Mod", -5.0, 5.0, 0.0, step=0.5, key=f"manual_{g_id}", help="Manual points to reflect coaching advantages, motivation, or tampering with the model.")
                 
                 weather_total_adj = 0.0
                 if wind >= 20: weather_total_adj -= 3.0
@@ -470,18 +494,18 @@ else:
                 
                 final_predicted_spread = base_predicted_spread + context_spread_adj
                 final_predicted_total = base_predicted_total + weather_total_adj
-                
+
                 home_edge = row["spread_line"] - final_predicted_spread
                 abs_edge = abs(home_edge)
-                
+
                 stat_score = min(100.0, (abs_edge / 3.0) * 100.0)
                 situational_score = max(50.0, min(100.0, 85.0 + (15.0 if rest_adv != "Neutral" else 0.0) - (10.0 if (h_travel or a_travel) else 0.0) + (manual_pts * 2.0)))
                 market_score = min(100.0, 75.0 + abs(row["spread_line"]) * 2.5)
                 injury_score = max(40.0, 100.0 - (injury_count * 12.0))
-                
+
                 confidence_score = (0.40 * stat_score) + (0.30 * situational_score) + (0.20 * market_score) + (0.10 * injury_score)
                 confidence_score = round(max(50.0, min(100.0, confidence_score)))
-                
+
                 if abs_edge <= 1.0 or confidence_score < 77:
                     tier_assignment = "NO BET"
                 elif 77 <= confidence_score <= 82:
@@ -490,9 +514,16 @@ else:
                     tier_assignment = "Tier 1.5"
                 else:
                     tier_assignment = "Tier 2"
-                    
+
                 bet_side = h_team if home_edge > 0 else a_team
-                
+
+                # Show a concise model summary for this matchup so the user can validate adjustments immediately
+                st.markdown("**Model Summary (Matchup Adjustment Results)**")
+                st.write(f"- Predicted Spread (model): {final_predicted_spread:+.2f} pts")
+                st.write(f"- Predicted Game Total (model): {final_predicted_total:.1f} pts")
+                st.write(f"- Market Spread: {row['spread_line']:+.2f} pts | Raw Edge: {home_edge:+.2f} pts | Abs Edge: {abs_edge:.2f} pts")
+                st.write(f"- Confidence: {confidence_score}% | Assigned Tier: {tier_assignment}")
+
                 adjusted_game_records.append({
                     "game_id": g_id, "Matchup": f"{a_team} @ {h_team}", "Market Spread": row["spread_line"],
                     "Model Spread": round(final_predicted_spread, 2), "Raw Edge": round(home_edge, 2),
@@ -505,23 +536,24 @@ else:
 
     # TAB 9: BILLIONBETTING CARD
     with t9:
-        st.subheader("🔥 Official BillionBetting Qualified Execution Card")
+        st.subheader("🔥 BillionBetting Qualified Execution Card — Official")
+        st.caption("The official execution card shows qualified plays (Tiered recommendations). Export selected plays to the historical ledger below.")
         if st.session_state.selected_week in st.session_state.model_runs:
             current_card_df = st.session_state.model_runs[st.session_state.selected_week]
             qualified_plays = current_card_df[current_card_df["Tier"] != "NO BET"].sort_values(by="Abs Edge", ascending=False)
-            
+
             if not qualified_plays.empty:
                 for c_idx, p_row in qualified_plays.iterrows():
                     color_map = {"Tier 1": "#34C759", "Tier 1.5": "#FF9500", "Tier 2": "#FF3B30"}
                     bg_color = color_map.get(p_row["Tier"], "#333")
-                    
+
                     st.markdown(f"""
                     <div class="tier-card" style="background-color: {bg_color}; color: white;">
                         🚀 {p_row['Tier']} Recommendation Play: {p_row['Target Play']} (Matchup: {p_row['Matchup']}) <br/>
                         &nbsp;&nbsp;&nbsp;&nbsp;[Market Line: {p_row['Market Spread']} | Model Line: {p_row['Model Spread']} | Edge Margin: {p_row['Raw Edge']:+.2f} Pts | Confidence: {p_row['Confidence']}%]
                     </div>
                     """, unsafe_allow_html=True)
-                    
+
                 st.markdown("---")
                 if st.button("📥 LOG AND EXPORT ENTIRE CARD PLAYS TO HISTORICAL DB", use_container_width=True):
                     current_tracker = pd.read_csv(TRACKER_FILE)
@@ -536,30 +568,33 @@ else:
                     updated_tracker = pd.concat([current_tracker, pd.DataFrame(rows_to_append)], ignore_index=True)
                     updated_tracker.to_csv(TRACKER_FILE, index=False)
                     st.toast("Card registered cleanly into persistent tracker!", icon="💾")
+                    st.caption(f"Exported {len(rows_to_append)} plays to persistent tracker.")
             else:
-                st.info("No games scheduled during this active week breach both Edge > 1.0 and Confidence Score >= 77 thresholds.")
+                st.info("No qualified plays this week. Adjust model inputs or widen thresholds in Model Output if desired.")
         else:
-            st.warning("Please visit the Model Output section workspace first to initialize calculation engines.")
+            st.warning("Please run model calculations in the Model Output tab first to initialize the execution card.")
 
     # TAB 10: RESULTS TRACKER
     with t10:
-        st.subheader("📈 Historical Results Tracker & Strategic Performance Audits")
+        st.subheader("📈 Historical Results Tracker — Ledger & Performance Audits")
+        st.caption("Edit ledger rows to record final results and CLV (closing line value). Save changes to persist historical performance.")
         historical_ledger = pd.read_csv(TRACKER_FILE)
-        
+
         if not historical_ledger.empty:
             st.markdown("### 🖊️ Finalize Ledger Results & CLV Metrics")
+            st.caption("Hint: set 'Result' to WIN/LOSS/PENDING and update 'CLV' to reflect net captured units. Use 'Update and Secure' to save.")
             edited_ledger = st.data_editor(historical_ledger, use_container_width=True, num_rows="dynamic")
-            
+
             if st.button("💾 UPDATE AND SECURE HISTORICAL RESULTS LEDGER", use_container_width=True):
                 edited_ledger.to_csv(TRACKER_FILE, index=False)
                 st.success("Ledger database changes saved successfully.")
                 st.rerun()
-                
+
             st.markdown("---")
             st.markdown("### 🧠 Strategic Model Performance Audit Diagnostic")
             q_edge1 = edited_ledger[edited_ledger["Edge"].abs() > 1.0]
             q_edge2 = edited_ledger[edited_ledger["Edge"].abs() > 2.0]
-            
+
             c_an1, c_an2 = st.columns(2)
             with c_an1:
                 st.markdown("**Roadmap Question Evaluation Portfolio:**")
@@ -570,4 +605,4 @@ else:
                 clv_captured = edited_ledger["CLV"].sum()
                 st.write(f"4. Net Verified CLV Units Captured: **{clv_captured:+.2f} Pts**")
         else:
-            st.info("The persistent performance database file ledger is currently empty. Run a card selection profile above to log bets.")
+            st.info("Ledger is empty. To populate: 1) Visit 'Model Output' and execute calculations, 2) Go to 'BillionBetting Card' and export qualified plays to the ledger, then return here to finalize results.")
